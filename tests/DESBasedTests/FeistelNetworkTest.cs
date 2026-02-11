@@ -162,7 +162,7 @@ public class FeistelNetworkTests {
             _constant = constant;
         }
 
-        public byte[] Transform(in byte[] halfBlock, in  byte[] roundKey) {
+        public byte[] Transform(byte[] halfBlock, in  byte[] roundKey) {
             var result = new byte[halfBlock.Length];
             for (int i = 0; i < halfBlock.Length; i++) {
                 result[i] = (byte)(halfBlock[i] ^ _constant ^ roundKey[i % roundKey.Length]);

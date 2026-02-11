@@ -2,28 +2,19 @@
 #pragma warning disable CS8604
 
 using DESBased.Core.Context;
-using DESBased.Core.Ciphers.DES;
-using DESBased.Core.Ciphers.TripleDES;
-using DESBased.Core.Ciphers.DEAL;
 using DESBased.Core.Modes;
 using DESBased.Core.Padding;
 using DESBased.Core.Interfaces;
 using System.Reflection;
 
-namespace DESBased.Core.Tests {
-public class FinalTest {
-    // Checks fewer encryption options for media files
+namespace Rijndael.Tests  {
+public class FinalTest  {
     private static readonly bool SIMPLE_TEST = true;
     private static readonly bool OFF_FILE_TEST = true;
-    // exe file is located in proj/bin/Debug/netX.X/DESBasedTests.dll
     private static readonly string ProjectDirectory =
-    Path.GetDirectoryName(
-        Path.GetDirectoryName(
-            Path.GetDirectoryName(
-                Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
-            )
-        )
-    )!;
+    Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(
+        Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
+    )))!;
 
     private static readonly string TestDataPath = Path.Combine(
         Path.GetDirectoryName(ProjectDirectory), "test_data"
@@ -35,46 +26,38 @@ public class FinalTest {
 
     [Theory]
     [MemberData(nameof(GetTestData))]
-    public async Task RoundTrip_EncryptDecrypt_MultipleBlock(
-        IBlockCipher cipher, int keySize,  MyCipherMode mode, MyPadding padding, byte[] text
+    public async Task RoundTripEncryptDecryptMultipleBlock(
+        IBlockCipher cipher, int keySize, MyCipherMode mode, MyPadding padding, byte[] text
     ) {
         byte[] key = GenerateByteString(keySize);
-        if (cipher is DESCipher or TripleDESCipher) key = FixKeyParity(key);
         byte[] iv = GenerateByteString(cipher.BlockSize);
-        int blockSize = cipher.BlockSize;
         if (padding == MyPadding.Zeros && text.Length > 0) text[^1] |= 1;
-
-        object[] args = mode == MyCipherMode.RD ? [ cipher, Guid.NewGuid().GetHashCode() ] : [cipher];
-
-        // CipherContext stores the cipher state ONLY for encryption OR decryption.
-        // Using the same context for both encryption AND decryption results in ~pseudorandom~ behavior.
+        object[] args = mode == MyCipherMode.RD ? [cipher, Guid.NewGuid().GetHashCode()] : [cipher];
         var contextEnc = new CipherContext(key, mode, padding, iv, args);
         var contextDec = new CipherContext(key, mode, padding, iv, args);
 
         byte[] ct = await contextEnc.EncryptAsync(text);
-        byte[] rt = await contextDec.DecryptAsync(ct);
-        
-        Assert.Equal(text, rt);
+        Assert.Equal(text, await contextDec.DecryptAsync(ct));
     }
-    
+
     [Theory]
     [MemberData(nameof(GetFileTestData))]
-    public async Task File_EncryptDecrypt_RoundTrip(IBlockCipher cipher, int keySize,
+    public async Task FileEncryptDecryptRoundTrip(IBlockCipher cipher, int keySize,
         MyCipherMode mode, MyPadding padding, string testFileName
     ) {
         if (OFF_FILE_TEST) return;
         byte[] key = GenerateByteString(keySize);
-        if (cipher is DESCipher or TripleDESCipher) key = FixKeyParity(key);
         byte[] iv = GenerateByteString(cipher.BlockSize);
 
-        object[] args = mode == MyCipherMode.RD ? [ cipher, Guid.NewGuid().GetHashCode() ] : [cipher];
+        object[] args = mode == MyCipherMode.RD ? [cipher, Guid.NewGuid().GetHashCode()] : [cipher];
 
         string inputPath = Path.Combine(TestDataPath, testFileName);
         string fileExt = Path.GetExtension(inputPath)[1..];
-        // output file names
         string cipherName = cipher.GetType().Name.Replace("Cipher", "");
-        var encFileName = $"enc_{Path.GetFileNameWithoutExtension(testFileName)}_{cipherName}_{keySize}_{mode}_{padding}{Path.GetExtension(testFileName)}";
-        var decFileName = $"dec_{Path.GetFileNameWithoutExtension(testFileName)}_{cipherName}_{keySize}_{mode}_{padding}{Path.GetExtension(testFileName)}";
+
+        string encFileName = $"enc_{Path.GetFileNameWithoutExtension(testFileName)}_{cipherName}_{keySize}_{cipher.BlockSize}_{mode}_{padding}{Path.GetExtension(testFileName)}";
+        string decFileName = $"dec_{Path.GetFileNameWithoutExtension(testFileName)}_{cipherName}_{keySize}_{cipher.BlockSize}_{mode}_{padding}{Path.GetExtension(testFileName)}";
+
         string encPath = Path.Combine(TestResultPath, fileExt, encFileName);
         string decPath = Path.Combine(TestResultPath, fileExt, decFileName);
 
@@ -101,54 +84,53 @@ public class FinalTest {
         string[] files = Directory.GetFiles(TestDataPath);
         foreach (var file in files) {
             string fileExt = Path.GetExtension(file);
-            // Excludes dot
-            Directory.CreateDirectory(Path.Combine(TestResultPath, fileExt[1..])); 
+            Directory.CreateDirectory(Path.Combine(TestResultPath, fileExt[1..]));
         }
     }
-    
+
     public static IEnumerable<object[]> GetCipherModePaddingCombinations(bool isMediaFile = false) {
-        object[][] ciphers = [
-            [new DESCipher(), 8],  // DES: 8 byte key
-            [ new TripleDESCipher(), 16 ],  // 3DES: 16 (EDE2)
-            [ new TripleDESCipher(), 24 ],  // 3DES: 24 (EDE3)
-            [ new DEALCipher(128), 16 ],  // DEAL-128:16
-            [ new DEALCipher(192), 24 ],  // DEAL-192: 24
-            [ new DEALCipher(256), 32 ]  // DEAL-256: 32
-        ];
 
         MyCipherMode[] modes = Enum.GetValues<MyCipherMode>();
         MyPadding[] allPaddings = Enum.GetValues<MyPadding>();
 
-        foreach (var cipherInfo in ciphers) {
-            var cipher = (IBlockCipher)cipherInfo[0];
-            int keySize = (int)cipherInfo[1];
+        byte gfMod = 0x1B;
+        foreach (int blockSizeBits in new[] { 128, 192, 256 }) {
+            foreach (int keySizeBits in new[] { 128, 192, 256 }) {
+                var cipher = new RijndaelBlockCipher((ushort)blockSizeBits, (ushort)keySizeBits, gfMod);
+                int keySizeBytes = keySizeBits / 8;
 
-            foreach (var mode in modes) {
-                MyPadding[] paddings = [];
-                if (isMediaFile && cipher is DEALCipher or TripleDESCipher) {
-                    if (mode is MyCipherMode.ECB) paddings = [ MyPadding.Iso10126, MyPadding.Pkcs7 ];
-                    else if (mode is MyCipherMode.CTR) paddings = [ MyPadding.Iso10126 ];
-                    else continue;
+                foreach (var mode in modes) {
+                    MyPadding[] paddings = GetPaddingsForCipherMode(cipher, mode, isMediaFile, allPaddings);
+                    foreach (var padding in paddings)
+                        yield return [cipher, keySizeBytes, mode, padding];
                 }
-                else {
-                    if (mode is MyCipherMode.OFB or MyCipherMode.CTR or MyCipherMode.RD)
-                        paddings = [MyPadding.Iso10126];
-                    else paddings = allPaddings;
-                }
-                foreach (var padding in paddings) yield return [ cipher, keySize, mode, padding ];
             }
         }
+    }
+
+    private static MyPadding[] GetPaddingsForCipherMode(
+        IBlockCipher cipher, MyCipherMode mode, bool isMediaFile, MyPadding[] allPaddings
+    ) {
+        if (isMediaFile && (cipher is RijndaelBlockCipher)) {
+            if (mode == MyCipherMode.ECB) return [MyPadding.Iso10126, MyPadding.Pkcs7];
+            if (mode == MyCipherMode.CTR) return [MyPadding.Iso10126];
+            return [];
+        }
+        if (mode is MyCipherMode.OFB or MyCipherMode.CTR or MyCipherMode.RD)
+            return [MyPadding.Iso10126];
+        return allPaddings;
     }
 
     public static IEnumerable<object[]> GetFileTestData() {
         string[] files = Directory.GetFiles(TestDataPath);
         if (files is null || files.Length == 0) yield break;
-        
+
         foreach (var file in files) {
             var fileName = Path.GetFileName(file);
             var extension = Path.GetExtension(fileName).ToLowerInvariant();
             bool isMediaFile = extension != ".txt";
             isMediaFile &= SIMPLE_TEST;
+
             foreach (var combo in GetCipherModePaddingCombinations(isMediaFile)) {
                 var data = new object[combo.Length + 1];
                 combo.CopyTo(data, 0);
@@ -160,19 +142,17 @@ public class FinalTest {
 
     public static IEnumerable<object[]> GetTestData() {
         foreach (var combo in GetCipherModePaddingCombinations()) {
-            int blockSize = combo[0] switch {
-                DESCipher => 8,
-                TripleDESCipher => 8,
-                DEALCipher => 16,
-                _ => throw new ArgumentException()
-            };
+            int blockSize = ((IBlockCipher)combo[0]).BlockSize;
+
             byte[][] data = [
+                GenerateByteString(blockSize * 1),
                 GenerateByteString(blockSize * 4),
                 GenerateByteString(blockSize * 3 + 5),
                 GenerateByteString(blockSize * 40 + 5),
                 GenerateByteString(blockSize * 50),
                 Array.Empty<byte>()
             ];
+
             foreach (byte[] text in data) {
                 var result = new object[combo.Length + 1];
                 combo.CopyTo(result, 0);
@@ -188,15 +168,6 @@ public class FinalTest {
         var key = new byte[size];
         rnd.NextBytes(key);
         return key;
-    }
-    
-    private static byte[] FixKeyParity(byte[] keyPart) {
-        for (int i = 0; i < keyPart.Length; i++) {
-            bool parity = true;
-            for (int j = 0; j < 8; j++) parity ^= (keyPart[i] & (1 << (7 - j))) != 0;
-            if (parity) keyPart[i] ^= 0x01;
-        }
-        return keyPart;
     }
 }
 }

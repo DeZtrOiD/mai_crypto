@@ -1,11 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>Library</OutputType>
     <TargetFramework>net10.0</TargetFramework>
-    <RootNamespace>3</RootNamespace>
+    <RootNamespace>Rijndael</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+
+  <ItemGroup>
+    <ProjectReference Include="..\DESBased\DESBased.csproj" />
+  </ItemGroup>
 
 </Project>

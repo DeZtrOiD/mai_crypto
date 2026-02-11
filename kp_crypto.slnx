@@ -1,9 +1,10 @@
 <Solution>
   <Project Path="2/2.csproj" />
-  <Project Path="3/3.csproj" />
+  <Project Path="Rijndael/Rijndael.csproj" />
   <Project Path="4/4.csproj" />
   <Project Path="5/5.csproj" />
   <Project Path="6/6.csproj" />
   <Project Path="DESBased/DESBased.csproj" />
-  <Project Path="tests\DESBasedtests\DESBasedTests.csproj" />
+  <Project Path="tests\DESBasedTests\DESBasedTests.csproj" />
+  <Project Path="tests\RijndaelTest\RijndaelTest.csproj" />
 </Solution>

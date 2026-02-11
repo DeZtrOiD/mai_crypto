@@ -6,7 +6,7 @@ using System.Buffers.Binary;
 
 namespace DESBased.Core.Ciphers.DES {
 public sealed class DESRoundFunction : IRoundFunction {
-    public byte[] Transform(in byte[] halfBlock, in byte[] roundKey) {
+    public byte[] Transform(byte[] halfBlock, in byte[] roundKey) {
         if ( halfBlock is null ) throw new ArgumentNullException( nameof(halfBlock) );
         if ( roundKey is null ) throw new ArgumentNullException( nameof(roundKey) );
         if (halfBlock.Length != 4 || roundKey.Length != 6)

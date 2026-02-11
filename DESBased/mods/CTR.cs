@@ -25,6 +25,7 @@ public class CTRMode : ICipherMode {
 
     private byte[] Process(in byte[] input) {
         ValidateInput(_cipher, input, _iv);
+        if (input.Length == 0) return Array.Empty<byte>();
 
         ulong blockSize = (ulong)_cipher!.BlockSize;
         byte[] output = new byte[input.Length];
@@ -34,11 +35,11 @@ public class CTRMode : ICipherMode {
 
         ulong firstBlock = startByte / blockSize;
         ulong lastBlock  = (endByte - 1) / blockSize;
-        int blockCount = (int)(lastBlock - firstBlock + 1);
+        ulong blockCount = lastBlock - firstBlock + 1;
 
         var keystream = new byte[blockCount][];
 
-        Parallel.For(0, blockCount, i => {
+        Parallel.For(0, (long)blockCount, i => {
             var counterBlock = (byte[])_iv!.Clone();
             ByteUtils.AddBigEndian2pow8(counterBlock, firstBlock + (ulong)i);
             keystream[i] = _cipher.Encrypt(counterBlock);

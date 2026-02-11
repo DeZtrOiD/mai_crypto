@@ -5,7 +5,7 @@ using DESBased.Core.Ciphers.DES;
 namespace DESBased.Core.Ciphers.DEAL {
 public sealed class DESAsRoundFunction : IRoundFunction {
     public DESAsRoundFunction(){}
-    public byte[] Transform(in byte[] halfBlock, in byte[] roundKey) {
+    public byte[] Transform(byte[] halfBlock, in byte[] roundKey) {
         if ( halfBlock is null ) throw new ArgumentNullException("Half block is null.");
         if ( halfBlock.Length != 8 ) throw new ArgumentException("Half block must be 8 bytes.");
 
