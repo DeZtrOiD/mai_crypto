@@ -1,10 +1,14 @@
 <Solution>
-  <Project Path="2/2.csproj" />
+  <Project Path="RSA/RSA.csproj" />
   <Project Path="Rijndael/Rijndael.csproj" />
   <Project Path="4/4.csproj" />
-  <Project Path="5/5.csproj" />
-  <Project Path="6/6.csproj" />
+  <Project Path="RC4/RC4.csproj" />
+  <Project Path="MacGuffin/MacGuffin.csproj" />
   <Project Path="DESBased/DESBased.csproj" />
+
   <Project Path="tests\DESBasedTests\DESBasedTests.csproj" />
   <Project Path="tests\RijndaelTest\RijndaelTest.csproj" />
+  <Project Path="tests\RC4Test\RC4Test.csproj" />
+  <Project Path="tests\RSATest\RSATest.csproj" />
+  <Project Path="tests\MacGuffinTest\MacGuffinTest.csproj" />
 </Solution>
