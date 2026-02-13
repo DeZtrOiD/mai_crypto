@@ -11,12 +11,14 @@
 using DESBased.Core.Modes;
 using DESBased.Core.Interfaces;
 using DESBased.Core.Padding;
+using System.Buffers;
 
 namespace DESBased.Core.Context {
 public class CipherContext {
     private readonly IBlockCipher _cipher;
     private readonly ICipherMode _modeImpl;
     private readonly MyPadding _padding;
+    private readonly int _bufferSize = 1024 * 16;
 
     public CipherContext(in byte[] key, MyCipherMode mode, MyPadding padding,
         in byte[] iv, params object[] args
@@ -67,16 +69,67 @@ public class CipherContext {
 
     public async Task EncryptFileAsync(string inputPath, string outputPath) {
         ValidateFiles(inputPath, outputPath, inputPath);
-        var plaintext = await File.ReadAllBytesAsync(inputPath);
-        var ciphertext = await EncryptAsync(plaintext);
-        await File.WriteAllBytesAsync(outputPath, ciphertext);
+
+        int blockSize = _cipher.BlockSize;
+        int bufferSize = _bufferSize - (_bufferSize % blockSize);
+        
+        using var inStream = new FileStream(inputPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize, useAsync: true);
+        using var outStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize, useAsync: true);
+        
+        if (_modeImpl.RequiresPadding)
+            await ProcessFileWithPaddingAsync(inStream, outStream, blockSize, bufferSize, isEncrypt: true);
+        else
+            await ProcessFileWithoutPaddingAsync(inStream, outStream, bufferSize, isEncrypt: true);
     }
 
     public async Task DecryptFileAsync(string inputPath, string outputPath) {
         ValidateFiles(inputPath, outputPath, inputPath);
-        var ciphertext = await File.ReadAllBytesAsync(inputPath);
-        var plaintext = await DecryptAsync(ciphertext);
-        await File.WriteAllBytesAsync(outputPath, plaintext);
+
+        int blockSize = _cipher.BlockSize;
+        int bufferSize = _bufferSize - (_bufferSize % blockSize);
+        
+        using var inStream = new FileStream(inputPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize, useAsync: true);
+        using var outStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize, useAsync: true);
+    
+        if (_modeImpl.RequiresPadding)
+            await ProcessFileWithPaddingAsync(inStream, outStream, blockSize, bufferSize, isEncrypt: false);
+        else
+            await ProcessFileWithoutPaddingAsync(inStream, outStream, bufferSize, isEncrypt: false);
+    }
+
+
+    private async Task ProcessFileWithoutPaddingAsync(
+        FileStream inStream, FileStream outStream, int bufferSize, bool isEncrypt
+    ) {
+        byte[] buffer = new byte[_bufferSize];
+        int readBytes;
+        while ((readBytes = await inStream.ReadAsync(buffer, 0, bufferSize)) > 0) {
+            byte[] block = buffer.AsMemory(0, readBytes).ToArray();
+            byte[] processed = await (isEncrypt ? EncryptAsync(block) : DecryptAsync(block));
+
+            await outStream.WriteAsync(processed, 0, processed.Length);
+        }
+    }
+
+    private async Task ProcessFileWithPaddingAsync(
+        FileStream inStream, FileStream outStream, int blockSize, int bufferSize, bool isEncrypt
+    ){
+        byte[] buffer = new byte[_bufferSize];
+        long totalBytes = inStream.Length;
+        long bytesRead = 0;
+        int readBytes;
+        
+        while ((readBytes = await inStream.ReadAsync(buffer, 0, bufferSize)) > 0) {
+            bytesRead += readBytes;
+            bool isLastBlock = bytesRead == totalBytes;
+            byte[] block = buffer.AsMemory(0, readBytes).ToArray();
+
+            if (isLastBlock && isEncrypt) block = PaddingProvider.Apply(block, blockSize, _padding);
+            byte[] processed = isEncrypt ? _modeImpl.Encrypt(block) : _modeImpl.Decrypt(block);
+            if (isLastBlock && !isEncrypt) processed = PaddingProvider.Remove(processed, _padding);
+
+            await outStream.WriteAsync(processed, 0, processed.Length);
+        }
     }
 
     private static void ValidateFiles(in string inputPath, in string outputPath, in string path) {
