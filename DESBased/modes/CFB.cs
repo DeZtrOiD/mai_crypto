@@ -39,14 +39,14 @@ public class CFBMode : ICipherMode {
         var blocks = ByteUtils.Split(ciphertext, _cipher!.BlockSize);
         var result = new byte[blocks.Length][];
 
-        byte[] prev = (byte[])_iv!.Clone();
+        Parallel.For(0, blocks.Length, i => {
+            if (i == 0) result[i] = ByteUtils.Xor(blocks[i], _cipher.Encrypt(_iv!));
+            else result[i] = ByteUtils.Xor(blocks[i], _cipher.Encrypt(blocks[i - 1]));
+        });
 
-        for (int i = 0; i < blocks.Length; i++) {
-            result[i] = ByteUtils.Xor(blocks[i], _cipher.Encrypt(prev));
-            prev = blocks[i];
-        }
         return ByteUtils.Concat(result);
     }
+
     private static void ValidateInput(IBlockCipher? cipher, byte[]? data, byte[]? _iv) {
         if (cipher is null) throw new InvalidOperationException("Cipher not initialized.");
         if (data is null) throw new ArgumentNullException(nameof(data));

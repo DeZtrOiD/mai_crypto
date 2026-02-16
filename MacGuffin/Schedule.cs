@@ -24,7 +24,7 @@ public class MacGuffinKeySchedule {
         Buffer.BlockCopy(key, 0, k[0], 0, 8);
         Buffer.BlockCopy(key, 8, k[1], 0, 8);
 
-        for (int i = 0; i < KSIZE; i++) expandedKey[i] = 0;
+        for (int i = 0; i < KSIZE; i++) expandedKey[i] = 0;  //
 
         for (int i = 0; i < 2; i++) {
             for (int j = 0; j < 32; j++) {

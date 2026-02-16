@@ -194,13 +194,12 @@ public class RC4Tests {
         }
     }
 
-    // === 6. Тесты на текстовые файлы с разными кодировками ===
 
     [Theory]
     [InlineData("Hello, world!", "utf-8")]
     [InlineData("Привет, мир!", "utf-8")]
     [InlineData("مرحبا بالعالم!", "utf-8")]
-    [InlineData("Hello\0World", "utf-8")] // с нулём
+    [InlineData("Hello\0World", "utf-8")]
     public async Task EncryptFileAsync_TextFile_Roundtrip(string text, string encodingName) {
         var enc = Encoding.GetEncoding(encodingName);
         var data = enc.GetBytes(text);
@@ -277,7 +276,7 @@ public class RC4Tests {
 
     private static byte[] GenerateRandomBytes(int size) {
         if (size == 0) return Array.Empty<byte>();
-        var random = new Random(42); // deterministic for tests
+        var random = new Random(42);
         var data = new byte[size];
         random.NextBytes(data);
         return data;

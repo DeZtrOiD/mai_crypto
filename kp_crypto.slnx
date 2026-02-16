@@ -1,7 +1,7 @@
 <Solution>
   <Project Path="RSA/RSA.csproj" />
   <Project Path="Rijndael/Rijndael.csproj" />
-  <Project Path="4/4.csproj" />
+  <Project Path="DiffHell/DiffHell.csproj" />
   <Project Path="RC4/RC4.csproj" />
   <Project Path="MacGuffin/MacGuffin.csproj" />
   <Project Path="DESBased/DESBased.csproj" />
@@ -11,4 +11,5 @@
   <Project Path="tests\RC4Test\RC4Test.csproj" />
   <Project Path="tests\RSATest\RSATest.csproj" />
   <Project Path="tests\MacGuffinTest\MacGuffinTest.csproj" />
+  <Project Path="tests\DiffHellTest\DiffHellTest.csproj" />
 </Solution>

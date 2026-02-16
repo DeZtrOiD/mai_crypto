@@ -1,4 +1,4 @@
-
+// https://link.springer.com/content/pdf/10.1007/3-540-60590-8_8.pdf
 using MacGuffin.Tables;
 
 namespace MacGuffin {
@@ -30,7 +30,7 @@ internal static class MacGuffinCore {
         }
     }
 
-    // mcg_block_decrypt из оригинального кода
+    // mcg_block_decrypt
     public static void DecryptBlock(byte[] blk, ushort[] ek) {
         ushort r0, r1, r2, r3, a, b, c;
         int idx = KSIZE;
