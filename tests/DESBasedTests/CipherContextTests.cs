@@ -10,6 +10,12 @@ using DESBased.Core.Utils;
 namespace DESBased.Core.Context.Tests {
 public class CipherContextTests {
 
+#if RANDOM_DELTA_ALTERNATIVE_SUPER_VERSION
+    private const bool RDASV = true;
+#else 
+    private const bool RDASV = false;
+#endif
+
     [Theory]
     [MemberData(nameof(TestData))]
     public async Task RoundTrip(MyCipherMode mode, MyPadding padding, int len) {
@@ -46,7 +52,7 @@ public class CipherContextTests {
             pt[^1] |= 1;// avoid zero-padding ambiguity
         }
 
-        object[] args = mode == MyCipherMode.RD ? [ cipher, Guid.NewGuid().GetHashCode() ] : [cipher];
+        object[] args = mode == MyCipherMode.RD ? [ cipher, Guid.NewGuid().GetHashCode(), 0 ] : [cipher];
     
         var encCtx = new CipherContext(key, mode, padding, iv, args);
         var decCtx = new CipherContext(key, mode, padding, iv, args);
@@ -61,7 +67,7 @@ public class CipherContextTests {
 
         int offset = 0;
         int offsetDec = 0;
-        bool RDWithDeltaDec = false;
+        bool RDWithDeltaDec = RDASV;
         foreach (var sz in chunks) {
             if (offset < pt.Length) {
                 var len = Math.Min(sz, pt.Length - offset);
