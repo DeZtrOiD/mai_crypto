@@ -41,7 +41,6 @@ public sealed class DiffieHellmanProtocol {
         return SHA256.HashData(secretBytes);
     }
 
-
     public byte[] Encrypt(byte[] plaintext, BigInteger otherPublicKey) {
         byte[] key = DeriveSymmetricKey(otherPublicKey);
         byte[] ciphertext = (byte[])plaintext.Clone();

@@ -10,7 +10,7 @@ namespace RSA {
 
     public abstract class ProbabilisticPrimalityTestBase : IProbabilisticPrimalityTest {
         private readonly RandomNumberGenerator _rng = RandomNumberGenerator.Create();
-
+        private const int _probability=2; // 1/2
         public bool IsPrime( BigInteger number, double confidence ) {
             if( confidence < 0.5 || confidence >= 1.0 )
                 throw new ArgumentException( "Confidence must be in [0.5, 1)." );
@@ -37,7 +37,7 @@ namespace RSA {
                 return 1;
 
             double errorProbability = 1.0 - confidence;
-            int iterations = (int)Math.Ceiling( Math.Log( 1.0 / errorProbability, 4 ) );
+            int iterations = (int)Math.Ceiling( Math.Log( 1.0 / errorProbability, _probability ) );
             return Math.Max( 1, Math.Min( iterations, 20 ) );
         }
 
@@ -60,6 +60,7 @@ namespace RSA {
     }
 
     public sealed class FermatPrimalityTest : ProbabilisticPrimalityTestBase {
+        private const int _probability=2;  // 1/2
         protected override bool RunSingleIteration( BigInteger n ) {
             var a = GenerateRandomInRange( 2, n - 1 );
             return NumberTheoryService.ModPow( a, n - 1, n ) == 1;
@@ -67,6 +68,7 @@ namespace RSA {
     }
 
     public sealed class MillerRabinPrimalityTest : ProbabilisticPrimalityTestBase {
+        private const int _probability=4;  // 1/4
         protected override bool RunSingleIteration( BigInteger n ) {
             var d = n - 1;
             var s = 0;
@@ -91,13 +93,14 @@ namespace RSA {
     }
 
     public sealed class SolovayStrassenPrimalityTest : ProbabilisticPrimalityTestBase {
+        private const int _probability=2;
         protected override bool RunSingleIteration( BigInteger n ) {
             var a = GenerateRandomInRange( 2, n - 1 );
             var x = NumberTheoryService.ModPow( a, ( n - 1 ) / 2, n );
             var jacobi = NumberTheoryService.JacobiSymbol( a, n );
             var jacobiMod = jacobi % n;
-            if( jacobiMod < 0 )
-                jacobiMod += n;
+            
+            if( jacobiMod < 0 ) jacobiMod += n;
 
             return x == jacobiMod;
         }

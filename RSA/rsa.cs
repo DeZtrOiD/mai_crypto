@@ -1,10 +1,5 @@
-using System;
-using System.IO;
-using System.Linq;
 using System.Numerics;
 using System.Security.Cryptography;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Buffers.Binary;
 
 namespace RSA {
@@ -27,6 +22,7 @@ namespace RSA {
             if( keyBits < 256 ) throw new ArgumentException( "keyBits >= 256" );
 
             int iterations = ProbabilisticPrimalityTestBase.CalculateIterationsFromConfidence( confidence );
+            if (primalityTest is PrimalityTest.MillerRabin && iterations != 1) iterations /= 2;
             _keyGenerator = new KeyGenerator( primalityTest, keyBits, iterations );
             GenerateNewKeyPair();
         }
@@ -40,17 +36,15 @@ namespace RSA {
             _maxDataSize = _blockBytes - _minBlockPadding;
         }
 
+
         public async Task EncryptFileAsync( string inPath, string outPath, int bufferSize ) {
             await using var inFile = File.OpenRead(inPath);
             await using var outFile = File.Create(outPath);
-            await outFile.WriteAsync(BitConverter.GetBytes(0L), 0, 8);
 
-            long bytesProcessed = 0;
             byte[] buffer = new byte[bufferSize];
 
             int length = 0;
             while( (length = await inFile.ReadAsync(buffer, 0, buffer.Length)) > 0 ) {
-                bytesProcessed += length;
 
                 var dataBlocks = DataToBlocks(buffer, length);
                 var encrypted = new (int, byte[], int)[dataBlocks.Length];
@@ -65,9 +59,6 @@ namespace RSA {
                     await outFile.WriteAsync( outBlock, 0, outBlock.Length );
                 }
             }
-
-            outFile.Position = 0;
-            await outFile.WriteAsync(BitConverter.GetBytes(bytesProcessed), 0, 8);
         }
 
         private (int Size, byte[] Data) ReadBlock( FileStream inFile, BinaryReader reader ) {
@@ -83,15 +74,10 @@ namespace RSA {
             await using var inFile = File.OpenRead(inPath);
             await using var outFile = File.Create(outPath);
             using var binRead = new BinaryReader(inFile);
-
-            if( inFile.Length < 8 ) throw new CryptographicException("Encrypted file is too short.");
-
+            
             var batchSize = Environment.ProcessorCount;
-            long fileSize = binRead.ReadInt64();
-            if( fileSize < 0 ) throw new CryptographicException( "Invalid byte 0: Invalid fileSize." );
 
-            long bytesWritten = 0;
-            while( inFile.Position < inFile.Length && bytesWritten < fileSize ) {
+            while( inFile.Position < inFile.Length ) {
                 var batch = new List<(int Size, byte[] Data)>();
                 var decrypted = new byte[batchSize][];
 
@@ -106,11 +92,8 @@ namespace RSA {
 
                 foreach( var block in decrypted.Take(batch.Count) ) {
                     await outFile.WriteAsync(block, 0, block.Length);
-                    bytesWritten += block.Length;
                 }
             }
-
-            if( bytesWritten != fileSize ) throw new CryptographicException( "Invalid file size." );
         }
 
         // PKCS #1: RSA Encryption Version 1.5
@@ -166,7 +149,7 @@ namespace RSA {
             
             byte[] bytes = cipher.ToByteArray( true, true );
             byte[] res = new byte[data.Length];
-            Array.Copy(bytes, 0, res, data.Length - bytes.Length, bytes.Length);
+            Array.Copy(bytes, 0, res, data.Length - bytes.Length, bytes.Length);  // zero pad
             return res;
         }
 
