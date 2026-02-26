@@ -11,7 +11,7 @@ public class ECBMode : ICipherMode {
 
     public void Init(IBlockCipher cipher, in byte[]? iv, params object[] args) {
         if (cipher is null)
-            throw new ArgumentNullException("Cipher mode requer initialized cipher.");
+            throw new ArgumentNullException("Cipher mode requires an initialized cipher.");
         _cipher = cipher;
     }
 

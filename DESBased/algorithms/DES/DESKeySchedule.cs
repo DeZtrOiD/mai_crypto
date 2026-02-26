@@ -6,7 +6,7 @@ using System.Buffers.Binary;
 namespace DESBased.Core.Ciphers.DES {
 public sealed class DESKeySchedule : IKeySchedule {
 
-    private readonly bool _parity;
+    private readonly bool _parity;  
 
     public DESKeySchedule(bool parity=true) => _parity = parity;
 

@@ -36,6 +36,8 @@ namespace RSA {
             _maxDataSize = _blockBytes - _minBlockPadding;
         }
 
+        public (BigInteger n, BigInteger e) GetNE => (_n, _e);
+        public void SetNE(BigInteger n, BigInteger e) { _n=n; _e=e; }
 
         public async Task EncryptFileAsync( string inPath, string outPath, int bufferSize ) {
             await using var inFile = File.OpenRead(inPath);
@@ -204,15 +206,11 @@ namespace RSA {
                     n = p * q;
                     phi = (p - 1) * (q - 1);
 
-                    if( NumberTheoryService.Gcd( e, phi ) != 1 ) {
-                        e += 2;
-                        continue;
-                    }
+                    if( NumberTheoryService.Gcd( e, phi ) != 1 ) continue;
 
                     d = ModInverse(e, phi);
-                    if( d < CalculateMinimumD( n ) ) {
-                        continue;
-                    }
+                    if( d < CalculateMinimumD( n ) ) continue;
+                    
                     return ( n, e, d );
                 }
             }
