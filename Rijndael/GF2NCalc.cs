@@ -76,6 +76,7 @@ public static class GF2NCalc {
         if (mod == 0) throw new ArgumentException("Modulus cannot be zero.");
         int n = Degree(mod);
         if (n <= 0) throw new ArgumentException("Modulus must have degree ≥ 1.");
+        if (Degree(b) >= n || Degree(a) >= n) throw new ArgumentException("The mod must be of greater degree than a or b.");
         // Reduction polynomial = mod without the leading x^n term
         ulong reductionPoly = mod ^ (1UL << n);
         ulong result = 0;
