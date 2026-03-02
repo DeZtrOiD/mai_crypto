@@ -21,9 +21,7 @@ namespace RSA {
             if( confidence < 0.5 || confidence >= 1.0 ) throw new ArgumentException( "Confidence must be in [0.5, 1)." );
             if( keyBits < 256 ) throw new ArgumentException( "keyBits >= 256" );
 
-            int iterations = ProbabilisticPrimalityTestBase.CalculateIterationsFromConfidence( confidence );
-            if (primalityTest is PrimalityTest.MillerRabin && iterations != 1) iterations /= 2;
-            _keyGenerator = new KeyGenerator( primalityTest, keyBits, iterations );
+            _keyGenerator = new KeyGenerator( primalityTest, keyBits, confidence );
             GenerateNewKeyPair();
         }
 
@@ -168,12 +166,12 @@ namespace RSA {
         public sealed class KeyGenerator {
             private readonly IProbabilisticPrimalityTest _primalityTestImpl;
             private readonly int _keyBits;
-            private readonly int _iterations;
+            private readonly double _confidence;
             private static readonly RandomNumberGenerator _rng = RandomNumberGenerator.Create();
 
-            public KeyGenerator( PrimalityTest primalityTest, int keyBits, int iterations ) {
+            public KeyGenerator( PrimalityTest primalityTest, int keyBits, double confidence ) {
                 _keyBits = keyBits >= 256 ? keyBits : throw new ArgumentException( "keyBits >= 256" );
-                _iterations = iterations >= 1 ? iterations : throw new ArgumentException( "iterations >= 1" );
+                _confidence = confidence;
 
                 switch( primalityTest ) {
                     case PrimalityTest.Fermat:
@@ -232,33 +230,16 @@ namespace RSA {
                     if( candidate.Sign < 0 ) candidate = -candidate;
                     candidate |= BigInteger.One << ( primeBits - 1 );
                     candidate |= BigInteger.One;
-                } while( !_primalityTestImpl.IsPrime( candidate, CalculateConfidenceFromIterations( _iterations ) ) );
+                } while( !_primalityTestImpl.IsPrime( candidate, _confidence ) );
 
                 return candidate;
             }
 
-            private double CalculateConfidenceFromIterations( int iterations ) {
-                return 1.0 - Math.Pow( 0.25, iterations );
-            }
-
             private BigInteger CalculateMinimumD( BigInteger modulus ) {
-                return IntegerSquareRoot( IntegerSquareRoot( modulus ) ) / 3;
+                return NumberTheoryService.IntegerSquareRoot(
+                    NumberTheoryService.IntegerSquareRoot(modulus)
+                ) / 3;
             }
-
-            private static BigInteger IntegerSquareRoot( BigInteger value ) {
-                if( value < 0 ) throw new ArgumentException( "Value must be non-negative.", nameof(value) );
-                if( value < 2 ) return value;
-
-                BigInteger x = value;
-                BigInteger y = ( x + 1 ) / 2;
-
-                while( y < x ) {
-                    x = y;
-                    y = ( x + value / x ) / 2;
-                }
-
-                return x;
-            }
-        }
+        }  // KeyGenerator
     }
 }

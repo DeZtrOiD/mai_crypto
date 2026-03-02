@@ -10,15 +10,14 @@ namespace RSA {
 
     public abstract class ProbabilisticPrimalityTestBase : IProbabilisticPrimalityTest {
         private readonly RandomNumberGenerator _rng = RandomNumberGenerator.Create();
-        private const int _probability=2; // 1/2
+        protected abstract double GetProb();
         public bool IsPrime( BigInteger number, double confidence ) {
             if( confidence < 0.5 || confidence >= 1.0 )
                 throw new ArgumentException( "Confidence must be in [0.5, 1)." );
 
-            if( number < 2 || number % 2 == 0 )
-                return number == 2;
+            if( number < 2 || number % 2 == 0 ) return number == 2;
 
-            int iterations = CalculateIterationsFromConfidence( confidence );
+            int iterations = CalculateIterationsFromConfidence( confidence, GetProb() );
             return RunTest( number, iterations );
         }
 
@@ -26,19 +25,17 @@ namespace RSA {
 
         private bool RunTest( BigInteger number, int iterations ) {
             for( int i = 0; i < iterations; i++ ) {
-                if( !RunSingleIteration( number ) )
-                    return false;
+                if( !RunSingleIteration( number ) ) return false;
             }
             return true;
         }
 
-        public static int CalculateIterationsFromConfidence( double confidence ) {
-            if( confidence <= 0.5 )
-                return 1;
+        public int CalculateIterationsFromConfidence( double confidence, double probability ) {
+            if( confidence <= 0.5 ) return 1;
 
             double errorProbability = 1.0 - confidence;
-            int iterations = (int)Math.Ceiling( Math.Log( 1.0 / errorProbability, _probability ) );
-            return Math.Max( 1, Math.Min( iterations, 20 ) );
+            int iterations = (int)Math.Ceiling( Math.Log( errorProbability, probability ) );
+            return Math.Max( 1, Math.Min( iterations, 100 ) );
         }
 
         protected BigInteger GenerateRandomInRange( BigInteger min, BigInteger max ) {
@@ -60,7 +57,8 @@ namespace RSA {
     }
 
     public sealed class FermatPrimalityTest : ProbabilisticPrimalityTestBase {
-        private const int _probability=2;  // 1/2
+        private const double _probability=0.5;
+        protected override double GetProb() => _probability;
         protected override bool RunSingleIteration( BigInteger n ) {
             var a = GenerateRandomInRange( 2, n - 1 );
             return NumberTheoryService.ModPow( a, n - 1, n ) == 1;
@@ -68,7 +66,8 @@ namespace RSA {
     }
 
     public sealed class MillerRabinPrimalityTest : ProbabilisticPrimalityTestBase {
-        private const int _probability=4;  // 1/4
+        private const double _probability=0.25;
+        protected override double GetProb() => _probability;
         protected override bool RunSingleIteration( BigInteger n ) {
             var d = n - 1;
             var s = 0;
@@ -93,7 +92,8 @@ namespace RSA {
     }
 
     public sealed class SolovayStrassenPrimalityTest : ProbabilisticPrimalityTestBase {
-        private const int _probability=2;
+        private const double _probability=0.5;
+        protected override double GetProb() => _probability;
         protected override bool RunSingleIteration( BigInteger n ) {
             var a = GenerateRandomInRange( 2, n - 1 );
             var x = NumberTheoryService.ModPow( a, ( n - 1 ) / 2, n );

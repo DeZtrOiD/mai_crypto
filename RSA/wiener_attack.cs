@@ -12,8 +12,8 @@ public static class WienerAttack {
 
         var (numerator, denominator) = (e, n);
         // convergent
-        var conP = (BigInteger.Zero, BigInteger.One); // p 0 1
-        var conQ = (BigInteger.One, BigInteger.Zero); // q 1 0
+        var conK = (BigInteger.Zero, BigInteger.One); // p 0 1
+        var conD = (BigInteger.One, BigInteger.Zero); // q 1 0
 
         var convergents = new List<(BigInteger, BigInteger)>();
 
@@ -21,28 +21,28 @@ public static class WienerAttack {
             BigInteger quotient = numerator / denominator;
             (numerator, denominator) = (denominator, numerator % denominator);
 
-            BigInteger newP = quotient * conP.Item2 + conP.Item1;
-            BigInteger newQ = quotient * conQ.Item2 + conQ.Item1;
+            BigInteger newK = quotient * conK.Item2 + conK.Item1;
+            BigInteger newD = quotient * conD.Item2 + conD.Item1;
 
-            (conP.Item1, conP.Item2) = (conP.Item2, newP);
-            (conQ.Item1, conQ.Item2) = (conQ.Item2, newQ);
-            // add p, q
-            convergents.Add((conP.Item2, conQ.Item2));
+            (conK.Item1, conK.Item2) = (conK.Item2, newK);
+            (conD.Item1, conD.Item2) = (conD.Item2, newD);
+            // add k, d
+            convergents.Add((conK.Item2, conD.Item2));
 
-            if (conQ.Item2 > 1 && conP.Item2 > 1) {
-                BigInteger phiNumerator = e * conQ.Item2 - 1;
-                if (phiNumerator % conP.Item2 == 0) {
-                    BigInteger phi = phiNumerator / conP.Item2;
+            if (conD.Item2 > 1 && conK.Item2 > 1) {
+                BigInteger phiNumerator = e * conD.Item2 - 1;
+                if (phiNumerator % conK.Item2 == 0) {
+                    BigInteger phi = phiNumerator / conK.Item2;
 
-                    BigInteger sumPQ = n - phi + 1;
-                    BigInteger discriminant = sumPQ * sumPQ - 4 * n;
+                    BigInteger sumB = n - phi + 1;
+                    BigInteger discriminant = sumB * sumB - 4 * n;
 
                     if (discriminant >= 0) {
-                        BigInteger sqrtDisc = IntegerSquareRoot(discriminant);
+                        BigInteger sqrtDisc = NumberTheoryService.IntegerSquareRoot(discriminant);
                         if (sqrtDisc * sqrtDisc == discriminant) {
-                            BigInteger p = (sumPQ + sqrtDisc) / 2;
+                            BigInteger p = (sumB + sqrtDisc) / 2;
                             if (p > 1 && n % p == 0) {
-                                return new WienerAttackResult(conQ.Item2, phi, convergents);
+                                return new WienerAttackResult(conD.Item2, phi, convergents);
                             }
                         }
                     }
@@ -51,19 +51,5 @@ public static class WienerAttack {
         }
 
         return null;
-    }
-
-    private static BigInteger IntegerSquareRoot(BigInteger value) {
-        if (value < 2) return value;
-
-        BigInteger x = value;
-        BigInteger y = (x + 1) / 2;
-
-        while (y < x) {
-            x = y;
-            y = (x + value / x) / 2;
-        }
-
-        return x;
     }
 }

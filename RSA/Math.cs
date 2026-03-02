@@ -93,4 +93,19 @@ public static class NumberTheoryService {
 
         return res;
     }
+
+    public static BigInteger IntegerSquareRoot( BigInteger value ) {
+        if( value < 0 ) throw new ArgumentException( "Value must be non-negative.", nameof(value) );
+        if( value < 2 ) return value;
+
+        BigInteger x = value;
+        BigInteger y = ( x + 1 ) / 2;
+
+        while( y < x ) {
+            x = y;
+            y = ( x + value / x ) / 2;
+        }
+
+        return x;
+    }
 }

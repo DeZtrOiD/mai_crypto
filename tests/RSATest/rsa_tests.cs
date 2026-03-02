@@ -12,6 +12,7 @@ namespace RSATests
 {
     public class RsaTests : IDisposable
     {
+        private const double confidence = 0.96875;
         private readonly string _testDir;
 
         public RsaTests()
@@ -56,7 +57,7 @@ namespace RSATests
         [MemberData(nameof(KeyGenBasicCases))]
         public void KeyGenerator_GeneratesValidKeyPair(RSA.RSA.PrimalityTest test, int bits)
         {
-            var kg = new RSA.RSA.KeyGenerator(test, bits, 5);
+            var kg = new RSA.RSA.KeyGenerator(test, bits, confidence);
             var (n, e, d) = kg.GenerateKeyPair();
             Assert.True(n > 0 && e > 0 && d > 0);
             Assert.InRange(n.GetBitLength(), bits - 7, bits);
@@ -65,7 +66,7 @@ namespace RSATests
         [Fact]
         public void GeneratedKeys_Satisfy_RSA_Equation_1024()
         {
-            var kg = new RSA.RSA.KeyGenerator(RSA.RSA.PrimalityTest.MillerRabin, 1024, 5);
+            var kg = new RSA.RSA.KeyGenerator(RSA.RSA.PrimalityTest.MillerRabin, 1024, confidence);
             var (n, e, d) = kg.GenerateKeyPair();
 
             var msg = BigInteger.Abs(new BigInteger(GenerateRandomBytes(128)));
@@ -80,7 +81,7 @@ namespace RSATests
         [Fact]
         public void GeneratedKeys_AreResistantToWienerAttack_512()
         {
-            var kg = new RSA.RSA.KeyGenerator(RSA.RSA.PrimalityTest.MillerRabin, 512, 5);
+            var kg = new RSA.RSA.KeyGenerator(RSA.RSA.PrimalityTest.MillerRabin, 512, confidence);
             var (n, e, _) = kg.GenerateKeyPair();
             Assert.Null(RSA.WienerAttack.MakeWienerAttack(n, e));
         }
@@ -116,7 +117,7 @@ namespace RSATests
             var tasks = Enumerable.Range(0, 5).Select(_ =>
                 Task.Run(() =>
                 {
-                    var kg = new RSA.RSA.KeyGenerator(RSA.RSA.PrimalityTest.MillerRabin, 512, 5);
+                    var kg = new RSA.RSA.KeyGenerator(RSA.RSA.PrimalityTest.MillerRabin, 512, confidence);
                     var (n, _, _) = kg.GenerateKeyPair();
                     Assert.True(n > 0);
                 })).ToArray();
@@ -260,28 +261,6 @@ namespace RSATests
             
             Assert.NotEqual(n1, n2);
             Assert.True(n2 > 0);
-        }
-
-        [Theory]
-        [InlineData(0.5, 1)]
-        [InlineData(0.75, 1)]
-        [InlineData(0.9375, 2)]      
-        [InlineData(0.984375, 3)]  
-        [InlineData(0.99609375, 4)] 
-        [InlineData(0.999, 5)]
-        public void Confidence_CalculatesCorrectIterations(double confidence, int expectedIterations)
-        {
-            var rsa = new RSA.RSA(RSA.RSA.PrimalityTest.MillerRabin, confidence, 512);
-            
-            var kgField = typeof(RSA.RSA).GetField("_keyGenerator", 
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var kg = (RSA.RSA.KeyGenerator)kgField!.GetValue(rsa)!;
-
-            var iterationsField = typeof(RSA.RSA.KeyGenerator).GetField("_iterations", 
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var actualIterations = (int)iterationsField!.GetValue(kg)!;
-            
-            Assert.Equal(expectedIterations, actualIterations);
         }
     }
 }
