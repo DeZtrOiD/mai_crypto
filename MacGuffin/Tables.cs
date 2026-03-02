@@ -150,7 +150,6 @@ public static class SBoxes {
         }
     }
 
-    // Получение stable таблицы (ленивая инициализация)
     public static ushort[] Stable {
         get { if (_stable is null) InitializeStable();
             return _stable!;
