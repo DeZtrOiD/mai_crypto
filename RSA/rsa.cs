@@ -37,9 +37,16 @@ namespace RSA {
         public (BigInteger n, BigInteger e) GetNE => (_n, _e);
         public void SetNE(BigInteger n, BigInteger e) { _n=n; _e=e; }
 
-        public async Task EncryptFileAsync( string inPath, string outPath, int bufferSize ) {
-            await using var inFile = File.OpenRead(inPath);
-            await using var outFile = File.Create(outPath);
+        public async Task EncryptFileAsync( string inPath, string outPath, int bufferSize=8192 ) {
+            await using var inFile = new FileStream(
+                inPath, FileMode.Open, FileAccess.Read, 
+                FileShare.Read, bufferSize, useAsync: true
+            );
+            
+            await using var outFile = new FileStream(
+                outPath, FileMode.Create, FileAccess.Write, 
+                FileShare.None, bufferSize, useAsync: true
+            );
 
             byte[] buffer = new byte[bufferSize];
 
@@ -61,39 +68,72 @@ namespace RSA {
             }
         }
 
-        private (int Size, byte[] Data) ReadBlock( FileStream inFile, BinaryReader reader ) {
-            if( inFile.Position >= inFile.Length ) return (0, new byte[0]);
+        public async Task DecryptFileAsync( string inPath, string outPath, int bufferSize=8192 ) {
+            await using var inFile = new FileStream(
+                inPath, FileMode.Open, FileAccess.Read, FileShare.Read, 
+                bufferSize: bufferSize, useAsync: true
+            );
+            
+            await using var outFile = new FileStream(
+                outPath, FileMode.Create, FileAccess.Write, FileShare.None, 
+                bufferSize: bufferSize, useAsync: true
+            );
 
-            int size = reader.ReadInt32();
-            byte[] raw = reader.ReadBytes(_blockBytes);
-            if( raw.Length != _blockBytes ) throw new CryptographicException( "Invalid block size." );
-            return (size, raw);
-        }
-
-        public async Task DecryptFileAsync( string inPath, string outPath ) {
-            await using var inFile = File.OpenRead(inPath);
-            await using var outFile = File.Create(outPath);
             using var binRead = new BinaryReader(inFile);
             
             var batchSize = Environment.ProcessorCount;
 
-            while( inFile.Position < inFile.Length ) {
-                var batch = new List<(int Size, byte[] Data)>();
-                var decrypted = new byte[batchSize][];
+            var options = new ParallelOptions { MaxDegreeOfParallelism = batchSize };
 
-                (int Size, byte[] Data) frag;
-                while( batch.Count < batchSize && (frag = ReadBlock(inFile, binRead)).Size > 0 )
-                    batch.Add( frag );
-
-                var options = new ParallelOptions { MaxDegreeOfParallelism = batchSize };
-                Parallel.For( 0, batch.Count, options, index => {
+            while (inFile.Position < inFile.Length) {
+                var batch = await ReadBatchAsync(inFile, batchSize);
+                if (batch.Count == 0) break;
+                
+                var decrypted = new byte[batch.Count][];
+                Parallel.For(0, batch.Count, options, index => {
                     decrypted[index] = RemovePadding(DecryptBlock(batch[index].Data), batch[index].Size);
                 });
-
-                foreach( var block in decrypted.Take(batch.Count) ) {
-                    await outFile.WriteAsync(block, 0, block.Length);
-                }
+                
+                foreach (var block in decrypted)
+                    if (block != null) await outFile.WriteAsync(block, 0, block.Length);
             }
+        }
+
+        private async Task<List<(int Size, byte[] Data)>> ReadBatchAsync(
+            FileStream inFile,  int maxBlocks
+        ) {
+            var result = new List<(int, byte[])>(maxBlocks);
+            if (inFile.Position >= inFile.Length) return result;
+            
+            const int HeaderSize = 4;
+            int recordSize = HeaderSize + _blockBytes;
+            
+            long remainingBytes = inFile.Length - inFile.Position;
+            int blocksToRead = (int)Math.Min(maxBlocks, remainingBytes / recordSize);
+            
+            if (blocksToRead == 0) {
+                if (remainingBytes > 0) {
+                    throw new CryptographicException(
+                        $"Corrupted file: incomplete block. Expected {recordSize} bytes per record, but only {remainingBytes} bytes remaining.");
+                }
+                return result;
+            }
+            
+            byte[] batchBuffer = new byte[blocksToRead * recordSize];
+            await inFile.ReadExactlyAsync(batchBuffer);
+            
+            for (int i = 0; i < blocksToRead; i++) {
+                int offset = i * recordSize;
+                
+                int size = BinaryPrimitives.ReadInt32LittleEndian(
+                    batchBuffer.AsSpan(offset, HeaderSize)
+                );                
+                byte[] encryptedBlock = new byte[_blockBytes];
+                Array.Copy(batchBuffer, offset + HeaderSize, encryptedBlock, 0, _blockBytes);
+
+                result.Add((size, encryptedBlock));
+            }
+            return result;
         }
 
         // PKCS #1: RSA Encryption Version 1.5
